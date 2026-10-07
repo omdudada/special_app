@@ -1,22 +1,21 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { SPRITE } from '@/lib/config';
+import { SPRITE, CLOSING_LINE } from '@/lib/config';
 
-type Props = { publicId: string; audioUrl: string; recipient: string; closing?: string | null; preview?: boolean };
 const SHAPES = ['closed', 'o', 'narrow', 'mid', 'wide'] as const;
 const pct = (v: number, t: number) => `${(v / t) * 100}%`;
 const GAIN = 2.4; // playback boost; the compressor stops clipping
+const post = (url: string, body: object) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
-export default function Player({ publicId, audioUrl, recipient, closing, preview }: Props) {
-  const [screen, setScreen] = useState<'gate' | 'stage' | 'end'>('gate');
+export default function Player() {
+  const [screen, setScreen] = useState<'gate' | 'name' | 'stage' | 'end'>('gate');
+  const [name, setName] = useState('');
   const audio = useRef<HTMLAudioElement>(null), fig = useRef<HTMLDivElement>(null), bob = useRef<HTMLDivElement>(null);
   const shapes = useRef<Record<string, HTMLImageElement | null>>({});
   const playing = useRef(false), ctxRef = useRef<AudioContext | null>(null), an = useRef<AnalyserNode | null>(null);
-  const started = useRef(false);
+  const visit = useRef<Promise<string | null>>(Promise.resolve(null)), started = useRef(false);
 
-  const track = (type: string) => { if (!preview) fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ publicId, type }) }).catch(() => {}); };
-
-  useEffect(() => { track('OPENED'); }, []); // eslint-disable-line
+  const track = (type: string) => { visit.current.then(id => { if (id) post('/api/visit/event', { id, type }).catch(() => {}); }); };
 
   // mouth loop: loudness + brightness of the audio pick the sprite
   useEffect(() => {
@@ -52,20 +51,33 @@ export default function Player({ publicId, audioUrl, recipient, closing, preview
     src.connect(a); src.connect(g); g.connect(c); c.connect(ctx.destination);
     ctxRef.current = ctx; an.current = a;
   }
-  function play(isReplay: boolean) {
+  // Must run straight from a tap so phones allow sound.
+  function play() {
     setupAudio(); ctxRef.current?.resume();
-    if (isReplay) track('REPLAYED');
+    const el = audio.current!; el.currentTime = 0; el.play().catch(() => {});
     started.current = false; setScreen('stage');
-    setTimeout(() => { const el = audio.current!; el.currentTime = 0; el.play().catch(() => {}); }, 900);
   }
+  function submitName() {
+    const n = name.trim(); if (!n) return;
+    visit.current = post('/api/visit', { name: n }).then(r => r.json()).then(j => j.id ?? null).catch(() => null);
+    play();
+  }
+  function replay() { track('REPLAYED'); play(); }
 
   return (
     <div className="scene">
       <section className={`screen ${screen === 'gate' ? 'on' : ''}`}>
         <div className="pulse" aria-hidden />
-        <h1 style={{ marginTop: 28 }}>Hi {recipient}, someone made something for you.</h1>
+        <h1 style={{ marginTop: 28 }}>Someone made something for you.</h1>
         <p className="sub">Sound on, please.</p>
-        <button className="main" onClick={() => play(false)}>Tap to open</button>
+        <button className="main" onClick={() => setScreen('name')}>Tap to open</button>
+      </section>
+      <section className={`screen ${screen === 'name' ? 'on' : ''}`}>
+        <h1>What&apos;s your name?</h1>
+        <input aria-label="Your name" value={name} maxLength={60} placeholder="Type your name" autoComplete="given-name"
+          onChange={e => setName(e.target.value)} onKeyDown={e => e.key === 'Enter' && submitName()}
+          style={{ marginTop: 26, maxWidth: 300, textAlign: 'center', fontSize: 18 }} />
+        <button className="main" disabled={!name.trim()} onClick={submitName}>Continue</button>
       </section>
       <section className={`screen stage ${screen === 'stage' ? 'on' : ''}`}>
         <div className="fig" ref={fig} role="img" aria-label="Animated character speaking to you">
@@ -79,16 +91,16 @@ export default function Player({ publicId, audioUrl, recipient, closing, preview
       </section>
       <section className={`screen ${screen === 'end' ? 'on' : ''}`}>
         <div className={`fin ${screen === 'end' ? 'on' : ''}`}>
-          <h1>That was for you.</h1>
-          {closing && <p className="sub">{closing}</p>}
-          <button onClick={() => play(true)}>Play again</button>
+          <h1>That was for you, {name.trim()}.</h1>
+          {CLOSING_LINE && <p className="sub">{CLOSING_LINE}</p>}
+          <button onClick={replay}>Play again</button>
         </div>
       </section>
-      <p className="note">Anonymous events (opened, played, finished) are recorded so the sender knows it arrived.{preview ? ' Preview: nothing is recorded.' : ''}</p>
-      <audio ref={audio} src={audioUrl} preload="auto" crossOrigin="anonymous" playsInline
-        onPlaying={() => { playing.current = true; if (!started.current) { started.current = true; track('AUDIO_STARTED'); } }}
+      <p className="note">Your name and whether the message played are recorded so the sender knows it arrived.</p>
+      <audio ref={audio} src="/message.mp3" preload="auto" playsInline
+        onPlaying={() => { playing.current = true; if (!started.current) { started.current = true; track('STARTED'); } }}
         onPause={() => { playing.current = false; }}
-        onEnded={() => { playing.current = false; track('AUDIO_COMPLETED'); setTimeout(() => setScreen('end'), 900); }} />
+        onEnded={() => { playing.current = false; track('COMPLETED'); setTimeout(() => setScreen('end'), 900); }} />
     </div>
   );
 }

@@ -1,2 +1,2 @@
-import { redirect } from 'next/navigation';
-export default function Home() { redirect('/dashboard'); }
+import Player from '@/components/Player';
+export default function Home() { return <Player />; }
