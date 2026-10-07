@@ -1,19 +1,27 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { SPRITE, CLOSING_LINE } from '@/lib/config';
+import { SPRITE, CLOSING_LINE, AUDIO_START_DELAY_MS } from '@/lib/config';
 
 const SHAPES = ['closed', 'o', 'narrow', 'mid', 'wide'] as const;
 const pct = (v: number, t: number) => `${(v / t) * 100}%`;
 const GAIN = 2.4; // playback boost; the compressor stops clipping
+const COLORS = ['#8a4b0f', '#c2410c', '#be123c', '#a21caf', '#7a5a1c', '#b45309'];
+const makeTags = () => Array.from({ length: 24 }, () => ({
+  left: Math.random() * 90, top: Math.random() * 82, size: 12 + Math.random() * 13,
+  dx: (Math.random() - 0.5) * 170, dy: (Math.random() - 0.5) * 170, r: (Math.random() - 0.5) * 28,
+  d: 6 + Math.random() * 7, delay: -Math.random() * 10, c: COLORS[Math.floor(Math.random() * COLORS.length)],
+}));
 const post = (url: string, body: object) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
 export default function Player() {
   const [screen, setScreen] = useState<'gate' | 'name' | 'stage' | 'end'>('gate');
   const [name, setName] = useState('');
+  const [tags, setTags] = useState<ReturnType<typeof makeTags>>([]);
   const audio = useRef<HTMLAudioElement>(null), fig = useRef<HTMLDivElement>(null), bob = useRef<HTMLDivElement>(null);
   const shapes = useRef<Record<string, HTMLImageElement | null>>({});
   const playing = useRef(false), ctxRef = useRef<AudioContext | null>(null), an = useRef<AnalyserNode | null>(null);
   const visit = useRef<Promise<string | null>>(Promise.resolve(null)), started = useRef(false);
+  const playTimer = useRef<any>(null);
 
   const track = (type: string) => { visit.current.then(id => { if (id) post('/api/visit/event', { id, type }).catch(() => {}); }); };
 
@@ -39,7 +47,7 @@ export default function Player() {
     raf = requestAnimationFrame(loop);
     let bt: any; const blink = () => { fig.current?.classList.add('blink'); setTimeout(() => fig.current?.classList.remove('blink'), 130); bt = setTimeout(blink, 2400 + Math.random() * 3400); };
     bt = setTimeout(blink, 2200);
-    return () => { cancelAnimationFrame(raf); clearTimeout(bt); };
+    return () => { cancelAnimationFrame(raf); clearTimeout(bt); clearTimeout(playTimer.current); };
   }, []);
 
   function setupAudio() {
@@ -51,18 +59,30 @@ export default function Player() {
     src.connect(a); src.connect(g); g.connect(c); c.connect(ctx.destination);
     ctxRef.current = ctx; an.current = a;
   }
-  // Must run straight from a tap so phones allow sound.
-  function play() {
+  // Runs from tap to unlock audio; introduces a short delay for smooth stage fade-in.
+  function play(delayMs = AUDIO_START_DELAY_MS) {
+    clearTimeout(playTimer.current);
     setupAudio(); ctxRef.current?.resume();
-    const el = audio.current!; el.currentTime = 0; el.play().catch(() => {});
     started.current = false; setScreen('stage');
+    const el = audio.current;
+    if (!el) return;
+    el.currentTime = 0;
+    if (delayMs > 0) {
+      playTimer.current = setTimeout(() => {
+        el.play().catch(() => {});
+      }, delayMs);
+    } else {
+      el.play().catch(() => {});
+    }
   }
   function submitName() {
     const n = name.trim(); if (!n) return;
     visit.current = post('/api/visit', { name: n }).then(r => r.json()).then(j => j.id ?? null).catch(() => null);
-    play();
+    setTags(makeTags());
+    play(AUDIO_START_DELAY_MS);
   }
-  function replay() { track('REPLAYED'); play(); }
+  function replay() { track('REPLAYED'); play(AUDIO_START_DELAY_MS); }
+
 
   return (
     <div className="scene">
@@ -80,6 +100,9 @@ export default function Player() {
         <button className="main" disabled={!name.trim()} onClick={submitName}>Continue</button>
       </section>
       <section className={`screen stage ${screen === 'stage' ? 'on' : ''}`}>
+        <div className="names" aria-hidden>
+          {tags.map((t, i) => <span key={i} style={{ left: `${t.left}%`, top: `${t.top}%`, fontSize: t.size, color: t.c, animationDuration: `${t.d}s`, animationDelay: `${t.delay}s`, ['--dx' as any]: `${t.dx}px`, ['--dy' as any]: `${t.dy}px`, ['--r' as any]: `${t.r}deg` }}>{name.trim()}</span>)}
+        </div>
         <div className="fig" ref={fig} role="img" aria-label="Animated character speaking to you">
           <div className="bob" ref={bob}>
             <img src="/character/base.png" alt="" style={{ inset: 0, width: '100%', height: '100%' }} />
