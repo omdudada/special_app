@@ -1,7 +1,31 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
-export const metadata: Metadata = { title: 'A message for you', robots: { index: false } };
-export const viewport: Viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover' };
+
+export const metadata: Metadata = {
+  title: 'A message for you',
+  description: 'Someone made a special message for you',
+  robots: { index: false },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#fed7aa',
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return <html lang="en"><body>{children}</body></html>;
+  return (
+    <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body>{children}</body>
+    </html>
+  );
 }

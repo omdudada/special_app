@@ -5,10 +5,10 @@ import { SPRITE, CLOSING_LINE, AUDIO_START_DELAY_MS } from '@/lib/config';
 const SHAPES = ['closed', 'o', 'narrow', 'mid', 'wide'] as const;
 const pct = (v: number, t: number) => `${(v / t) * 100}%`;
 const GAIN = 2.4; // playback boost; the compressor stops clipping
-const COLORS = ['#8a4b0f', '#c2410c', '#be123c', '#a21caf', '#7a5a1c', '#b45309'];
+const COLORS = ['#9a3412', '#c2410c', '#be123c', '#e11d48', '#b45309', '#854d0e'];
 const makeTags = () => Array.from({ length: 24 }, () => ({
-  left: Math.random() * 90, top: Math.random() * 82, size: 12 + Math.random() * 13,
-  dx: (Math.random() - 0.5) * 170, dy: (Math.random() - 0.5) * 170, r: (Math.random() - 0.5) * 28,
+  left: Math.random() * 90, top: Math.random() * 82, size: 13 + Math.random() * 12,
+  dx: (Math.random() - 0.5) * 170, dy: (Math.random() - 0.5) * 170, r: (Math.random() - 0.5) * 26,
   d: 6 + Math.random() * 7, delay: -Math.random() * 10, c: COLORS[Math.floor(Math.random() * COLORS.length)],
 }));
 const post = (url: string, body: object) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -17,6 +17,7 @@ export default function Player() {
   const [screen, setScreen] = useState<'gate' | 'name' | 'stage' | 'end'>('gate');
   const [name, setName] = useState('');
   const [tags, setTags] = useState<ReturnType<typeof makeTags>>([]);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const audio = useRef<HTMLAudioElement>(null), fig = useRef<HTMLDivElement>(null), bob = useRef<HTMLDivElement>(null);
   const shapes = useRef<Record<string, HTMLImageElement | null>>({});
   const playing = useRef(false), ctxRef = useRef<AudioContext | null>(null), an = useRef<AnalyserNode | null>(null);
@@ -59,7 +60,7 @@ export default function Player() {
     src.connect(a); src.connect(g); g.connect(c); c.connect(ctx.destination);
     ctxRef.current = ctx; an.current = a;
   }
-  // Runs from tap to unlock audio; introduces a short delay for smooth stage fade-in.
+
   function play(delayMs = AUDIO_START_DELAY_MS) {
     clearTimeout(playTimer.current);
     setupAudio(); ctxRef.current?.resume();
@@ -75,55 +76,227 @@ export default function Player() {
       el.play().catch(() => {});
     }
   }
+
   function submitName() {
     const n = name.trim(); if (!n) return;
     visit.current = post('/api/visit', { name: n }).then(r => r.json()).then(j => j.id ?? null).catch(() => null);
     setTags(makeTags());
     play(AUDIO_START_DELAY_MS);
   }
+
   function replay() { track('REPLAYED'); play(AUDIO_START_DELAY_MS); }
 
-
   return (
-    <div className="scene">
-      <section className={`screen ${screen === 'gate' ? 'on' : ''}`}>
-        <div className="pulse" aria-hidden />
-        <h1 style={{ marginTop: 28 }}>Someone made something for you.</h1>
-        <p className="sub">Sound on, please.</p>
-        <button className="main" onClick={() => setScreen('name')}>Tap to open</button>
-      </section>
-      <section className={`screen ${screen === 'name' ? 'on' : ''}`}>
-        <h1>What&apos;s your name?</h1>
-        <input aria-label="Your name" value={name} maxLength={60} placeholder="Type your name" autoComplete="given-name"
-          onChange={e => setName(e.target.value)} onKeyDown={e => e.key === 'Enter' && submitName()}
-          style={{ marginTop: 26, maxWidth: 300, textAlign: 'center', fontSize: 18 }} />
-        <button className="main" disabled={!name.trim()} onClick={submitName}>Continue</button>
-      </section>
-      <section className={`screen stage ${screen === 'stage' ? 'on' : ''}`}>
-        <div className="names" aria-hidden>
-          {tags.map((t, i) => <span key={i} style={{ left: `${t.left}%`, top: `${t.top}%`, fontSize: t.size, color: t.c, animationDuration: `${t.d}s`, animationDelay: `${t.delay}s`, ['--dx' as any]: `${t.dx}px`, ['--dy' as any]: `${t.dy}px`, ['--r' as any]: `${t.r}deg` }}>{name.trim()}</span>)}
+    <div className={`scene scene-${screen}`}>
+      {/* Dynamic ambient lighting & glowing gradient orbs */}
+      <div className="bg-glow-container" aria-hidden>
+        <div className="bg-glow bg-glow-1" />
+        <div className="bg-glow bg-glow-2" />
+        <div className="bg-glow bg-glow-3" />
+        <div className="vignette-overlay" />
+        {/* Floating subtle ambient stars */}
+        <div className="ambient-stars">
+          <span className="star s1">✦</span>
+          <span className="star s2">✧</span>
+          <span className="star s3">✦</span>
+          <span className="star s4">✧</span>
+          <span className="star s5">✦</span>
+          <span className="star s6">✧</span>
         </div>
+      </div>
+
+      {/* Slide 1: Gate / The Opening Invitation */}
+      <section className={`screen screen-gate ${screen === 'gate' ? 'on' : ''}`}>
+        <div className="pulse-wrapper" aria-hidden>
+          <div className="pulse-aura" />
+          <div className="pulse-ring ring-1" />
+          <div className="pulse-ring ring-2" />
+          <div className="pulse-core">
+            <span className="pulse-sparkle">✨</span>
+          </div>
+        </div>
+
+        <h1 className="gate-title">
+          Someone made<br />
+          <em>something special</em> for you.
+        </h1>
+
+        <div className="sound-pill">
+          <svg className="sound-pill-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77zm-2.5 0L6.5 7.5H3c-.55 0-1 .45-1 1v7c0 .55.45 1 1 1h3.5l5 4.27c.67.57 1.5.09 1.5-.77V4c0-.86-.83-1.34-1.5-.77zM14 8.83v6.34c1.24-.62 2-1.9 2-3.17s-.76-2.55-2-3.17z"/>
+          </svg>
+          <span>Sound on, please</span>
+        </div>
+
+        <button className="main-btn btn-gate" onClick={() => setScreen('name')}>
+          <span>Tap to open</span>
+          <span className="btn-arrow">✦</span>
+        </button>
+      </section>
+
+      {/* Slide 2: Name Input */}
+      <section className={`screen screen-name ${screen === 'name' ? 'on' : ''}`}>
+        <div className="glass-card name-card">
+          <div className="card-badge">
+            <span className="badge-sparkle">✨</span> A personal message
+          </div>
+
+          <h1 className="card-title">What&apos;s your name?</h1>
+          <p className="card-sub">So the message knows who it&apos;s speaking to</p>
+
+          <div className="input-wrap">
+            <input
+              aria-label="Your name"
+              value={name}
+              maxLength={60}
+              placeholder="Type your name here..."
+              autoComplete="given-name"
+              autoFocus
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && submitName()}
+            />
+          </div>
+
+          <button className="main-btn btn-continue" disabled={!name.trim()} onClick={submitName}>
+            <span>Continue</span>
+            <span className="btn-arrow">→</span>
+          </button>
+        </div>
+      </section>
+
+      {/* Slide 3: Stage / Character Lip-Sync & Floating Names */}
+      <section className={`screen stage ${screen === 'stage' ? 'on' : ''}`}>
+        <div className="stage-spotlight" aria-hidden />
+
+        <div className="names" aria-hidden>
+          {tags.map((t, i) => (
+            <span
+              key={i}
+              className="floating-name-tag"
+              style={{
+                left: `${t.left}%`,
+                top: `${t.top}%`,
+                fontSize: t.size,
+                color: t.c,
+                animationDuration: `${t.d}s`,
+                animationDelay: `${t.delay}s`,
+                ['--dx' as any]: `${t.dx}px`,
+                ['--dy' as any]: `${t.dy}px`,
+                ['--r' as any]: `${t.r}deg`
+              }}
+            >
+              <span className="tag-sparkle">✦</span> {name.trim()}
+            </span>
+          ))}
+        </div>
+
         <div className="fig" ref={fig} role="img" aria-label="Animated character speaking to you">
           <div className="bob" ref={bob}>
             <img src="/character/base.png" alt="" style={{ inset: 0, width: '100%', height: '100%' }} />
-            {SHAPES.map(k => <img key={k} ref={el => { shapes.current[k] = el; }} className="m" src={`/character/${k}.png`} alt=""
-              style={{ left: pct(SPRITE.box[0], SPRITE.w), top: pct(SPRITE.box[1], SPRITE.h), width: pct(SPRITE.box[2] - SPRITE.box[0], SPRITE.w) }} />)}
-            {SPRITE.eyes.map(([x0, x1]) => <div key={x0} className="eye" style={{ left: pct(x0, SPRITE.w), top: pct(SPRITE.eyeY, SPRITE.h), width: pct(x1 - x0, SPRITE.w), height: pct(SPRITE.eyeH, SPRITE.h) }} />)}
+            {SHAPES.map(k => (
+              <img
+                key={k}
+                ref={el => { shapes.current[k] = el; }}
+                className="m"
+                src={`/character/${k}.png`}
+                alt=""
+                style={{
+                  left: pct(SPRITE.box[0], SPRITE.w),
+                  top: pct(SPRITE.box[1], SPRITE.h),
+                  width: pct(SPRITE.box[2] - SPRITE.box[0], SPRITE.w)
+                }}
+              />
+            ))}
+            {SPRITE.eyes.map(([x0, x1]) => (
+              <div
+                key={x0}
+                className="eye"
+                style={{
+                  left: pct(x0, SPRITE.w),
+                  top: pct(SPRITE.eyeY, SPRITE.h),
+                  width: pct(x1 - x0, SPRITE.w),
+                  height: pct(SPRITE.eyeH, SPRITE.h)
+                }}
+              />
+            ))}
           </div>
+          <div className="character-pedestal" aria-hidden />
+        </div>
+
+        {/* Live Audio playing indicator badge */}
+        {isPlayingAudio && (
+          <div className="audio-live-pill" aria-hidden>
+            <div className="live-bars">
+              <span /><span /><span /><span />
+            </div>
+            <span>Speaking to you...</span>
+          </div>
+        )}
+      </section>
+
+      {/* Slide 4: End / Celebration Finale */}
+      <section className={`screen screen-end ${screen === 'end' ? 'on' : ''}`}>
+        {/* Floating celebration hearts and sparkles */}
+        <div className="celebration-particles" aria-hidden>
+          {Array.from({ length: 18 }).map((_, i) => (
+            <span
+              key={i}
+              className="celebration-item"
+              style={{
+                left: `${4 + (i * 5.6) % 92}%`,
+                animationDelay: `${(i * 0.35) % 3.2}s`,
+                animationDuration: `${3.6 + (i % 3) * 0.9}s`,
+                fontSize: `${16 + (i % 3) * 6}px`
+              }}
+            >
+              {['💖', '✨', '💛', '🌸', '✦'][i % 5]}
+            </span>
+          ))}
+        </div>
+
+        <div className={`glass-card end-card fin ${screen === 'end' ? 'on' : ''}`}>
+          <div className="end-badge-icon">💖</div>
+          <h1 className="end-title">
+            That was for you,<br />
+            <span className="end-name-highlight">{name.trim()}</span>.
+          </h1>
+          {CLOSING_LINE && (
+            <p className="end-closing-line">
+              &ldquo;{CLOSING_LINE}&rdquo;
+            </p>
+          )}
+          <button className="main-btn btn-replay" onClick={replay}>
+            <span className="btn-replay-icon">↺</span>
+            <span>Play again</span>
+          </button>
         </div>
       </section>
-      <section className={`screen ${screen === 'end' ? 'on' : ''}`}>
-        <div className={`fin ${screen === 'end' ? 'on' : ''}`}>
-          <h1>That was for you, {name.trim()}.</h1>
-          {CLOSING_LINE && <p className="sub">{CLOSING_LINE}</p>}
-          <button onClick={replay}>Play again</button>
-        </div>
-      </section>
-      <p className="note">Your name and whether the message played are recorded so the sender knows it arrived.</p>
-      <audio ref={audio} src="/message.mp3" preload="auto" playsInline
-        onPlaying={() => { playing.current = true; if (!started.current) { started.current = true; track('STARTED'); } }}
-        onPause={() => { playing.current = false; }}
-        onEnded={() => { playing.current = false; track('COMPLETED'); setTimeout(() => setScreen('end'), 900); }} />
+
+      {/* Audio element - note disclaimer at top has been removed */}
+      <audio
+        ref={audio}
+        src="/message.mp3"
+        preload="auto"
+        playsInline
+        onPlaying={() => {
+          playing.current = true;
+          setIsPlayingAudio(true);
+          if (!started.current) {
+            started.current = true;
+            track('STARTED');
+          }
+        }}
+        onPause={() => {
+          playing.current = false;
+          setIsPlayingAudio(false);
+        }}
+        onEnded={() => {
+          playing.current = false;
+          setIsPlayingAudio(false);
+          track('COMPLETED');
+          setTimeout(() => setScreen('end'), 900);
+        }}
+      />
     </div>
   );
 }
