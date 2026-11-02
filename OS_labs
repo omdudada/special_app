@@ -1,0 +1,1273 @@
+1. Shell Programming – Address Book|
+
+#!/bin/bash
+
+book="address_book.txt"
+
+while true
+do
+    echo ""
+    echo "----- ADDRESS BOOK -----"
+    echo "1. Create Address Book"
+    echo "2. View Address Book"
+    echo "3. Insert Record"
+    echo "4. Search Record"
+    echo "5. Delete Record"
+    echo "6. Modify Record"
+    echo "7. Exit"
+
+    read -p "Enter your choice: " ch
+
+    case $ch in
+
+    1)
+        if [ -f "$book" ]; then
+            echo "Address book already exists."
+        else
+            touch "$book"
+            echo "Address book created."
+        fi
+        ;;
+
+    2)
+        if [ -f "$book" ]; then
+            cat "$book"
+        else
+            echo "Address book does not exist."
+        fi
+        ;;
+
+    3)
+        read -p "Enter name: " name
+        read -p "Enter phone number: " phone
+        read -p "Enter email: " email
+
+        echo "$name | $phone | $email" >> "$book"
+        echo "Record inserted."
+        ;;
+
+    4)
+        read -p "Enter name to search: " name
+        grep -i "$name" "$book"
+        ;;
+
+    5)
+        read -p "Enter name to delete: " name
+
+        grep -iv "$name" "$book" > temp.txt
+        mv temp.txt "$book"
+
+        echo "Record deleted if it existed."
+        ;;
+
+    6)
+        read -p "Enter name to modify: " oldname
+
+        grep -i "$oldname" "$book"
+
+        read -p "Enter new name: " name
+        read -p "Enter new phone number: " phone
+        read -p "Enter new email: " email
+
+        grep -iv "$oldname" "$book" > temp.txt
+        echo "$name | $phone | $email" >> temp.txt
+
+        mv temp.txt "$book"
+
+        echo "Record modified."
+        ;;
+
+    7)
+        echo "Exiting Address Book."
+        break
+        ;;
+
+    *)
+        echo "Invalid choice."
+        ;;
+
+    esac
+done
+
+
+2. Process Management – FORK and WAIT
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
+void ascending(int arr[], int n)
+{
+    int i, j, temp;
+
+    for (i = 0; i < n; i++)
+    {
+        for (j = i + 1; j < n; j++)
+        {
+            if (arr[i] > arr[j])
+            {
+                temp = arr[i];
+                arr[i] = arr[j];
+                arr[j] = temp;
+            }
+        }
+    }
+
+    printf("Ascending Order: ");
+    for (i = 0; i < n; i++)
+        printf("%d ", arr[i]);
+
+    printf("\n");
+}
+
+void descending(int arr[], int n)
+{
+    int i, j, temp;
+
+    for (i = 0; i < n; i++)
+    {
+        for (j = i + 1; j < n; j++)
+        {
+            if (arr[i] < arr[j])
+            {
+                temp = arr[i];
+                arr[i] = arr[j];
+                arr[j] = temp;
+            }
+        }
+    }
+
+    printf("Descending Order: ");
+    for (i = 0; i < n; i++)
+        printf("%d ", arr[i]);
+
+    printf("\n");
+}
+
+int main()
+{
+    int n, i;
+    int arr[100];
+
+    printf("Enter number of elements: ");
+    scanf("%d", &n);
+
+    printf("Enter array elements: ");
+    for (i = 0; i < n; i++)
+        scanf("%d", &arr[i]);
+
+    pid_t pid = fork();
+
+    if (pid < 0)
+    {
+        printf("Fork failed\n");
+        exit(1);
+    }
+    else if (pid == 0)
+    {
+        printf("\nChild Process\n");
+        printf("Child PID: %d\n", getpid());
+
+        ascending(arr, n);
+        exit(0);
+    }
+    else
+    {
+        printf("\nParent Process\n");
+        printf("Parent PID: %d\n", getpid());
+        printf("Child PID: %d\n", pid);
+
+        descending(arr, n);
+        wait(NULL);
+
+        printf("Parent: Child process completed\n");
+    }
+
+    // Zombie Process
+    pid_t zombie_pid = fork();
+
+    if (zombie_pid == 0)
+    {
+        printf("\nZombie Child PID: %d\n", getpid());
+        exit(0);
+    }
+    else if (zombie_pid > 0)
+    {
+        printf("Parent: Zombie child created\n");
+        sleep(2);
+
+        waitpid(zombie_pid, NULL, 0);
+
+        printf("Parent: Zombie process removed\n");
+    }
+
+    // Orphan Process
+    pid_t orphan_pid = fork();
+
+    if (orphan_pid == 0)
+    {
+        printf("\nOrphan Child Created\n");
+        printf("Child PID: %d\n", getpid());
+
+        sleep(5);
+
+        printf("New Parent PID: %d\n", getppid());
+        printf("Orphan process completed\n");
+    }
+    else if (orphan_pid > 0)
+    {
+        printf("Parent exiting. Child becomes orphan.\n");
+        exit(0);
+    }
+
+    return 0;
+}
+
+
+3. Producer–Consumer Problem
+
+#include <stdio.h>
+#include <pthread.h>
+#include <stdlib.h>
+#include <semaphore.h>
+#include <unistd.h>
+
+#define buffer_size 10
+
+sem_t full, empty;
+
+int buffer[buffer_size];
+
+pthread_mutex_t mutex;
+
+void *producer(void *p);
+void *consumer(void *p);
+void insert_item(int);
+int remove_item();
+
+int counter;
+
+void initialize()
+{
+    pthread_mutex_init(&mutex, NULL);
+    sem_init(&full, 0, 0);
+    sem_init(&empty, 0, buffer_size);
+
+    counter = 0;
+}
+
+int main()
+{
+    int n1, n2, i;
+
+    printf("\nEnter no. of producers you want to create: ");
+    scanf("%d", &n1);
+
+    printf("\nEnter no. of consumers you want to create: ");
+    scanf("%d", &n2);
+
+    initialize();
+
+    pthread_t tid[n1], tid1[n2];
+
+    for (i = 0; i < n1; i++)
+        pthread_create(&tid[i], NULL, producer, NULL);
+
+    for (i = 0; i < n2; i++)
+        pthread_create(&tid1[i], NULL, consumer, NULL);
+
+    sleep(50);
+
+    exit(0);
+}
+
+void *producer(void *p)
+{
+    int item;
+
+    item = rand() % 10;
+
+    sem_wait(&empty);
+
+    pthread_mutex_lock(&mutex);
+
+    printf("\nProducer produced %d item", item);
+
+    insert_item(item);
+
+    pthread_mutex_unlock(&mutex);
+
+    sem_post(&full);
+
+    return NULL;
+}
+
+void *consumer(void *p)
+{
+    int item;
+
+    sem_wait(&full);
+
+    pthread_mutex_lock(&mutex);
+
+    item = remove_item();
+
+    printf("\nConsumer consumed %d item", item);
+
+    pthread_mutex_unlock(&mutex);
+
+    sem_post(&empty);
+
+    return NULL;
+}
+
+void insert_item(int item)
+{
+    buffer[counter++] = item;
+}
+
+int remove_item()
+{
+    return buffer[--counter];
+}
+
+
+4. Dining Philosophers Problem
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h>
+
+#define NUM_PHILOSOPHERS 5
+
+pthread_mutex_t forks[NUM_PHILOSOPHERS];
+
+pthread_t philosophers[NUM_PHILOSOPHERS];
+
+int philosopher_ids[NUM_PHILOSOPHERS];
+
+void* philosopher(void* num)
+{
+    int id = *(int*)num;
+
+    int left_fork = id;
+    int right_fork = (id + 1) % NUM_PHILOSOPHERS;
+
+    while (1)
+    {
+        // Thinking
+        printf("Philosopher %d is thinking.\n", id);
+
+        usleep(rand() % 1000000);
+
+        // Asymmetric resource acquisition to prevent deadlock
+        if (id % 2 == 0)
+        {
+            pthread_mutex_lock(&forks[left_fork]);
+
+            printf("Philosopher %d picked up left fork %d.\n",
+                   id, left_fork);
+
+            pthread_mutex_lock(&forks[right_fork]);
+
+            printf("Philosopher %d picked up right fork %d.\n",
+                   id, right_fork);
+        }
+        else
+        {
+            pthread_mutex_lock(&forks[right_fork]);
+
+            printf("Philosopher %d picked up right fork %d.\n",
+                   id, right_fork);
+
+            pthread_mutex_lock(&forks[left_fork]);
+
+            printf("Philosopher %d picked up left fork %d.\n",
+                   id, left_fork);
+        }
+
+        // Eating
+        printf("Philosopher %d is eating.\n", id);
+
+        usleep(rand() % 1000000);
+
+        // Put down forks
+        pthread_mutex_unlock(&forks[right_fork]);
+
+        pthread_mutex_unlock(&forks[left_fork]);
+
+        printf("Philosopher %d finished eating and is putting down forks.\n",
+               id);
+    }
+}
+
+int main()
+{
+    int i;
+
+    // Initialize mutexes for each fork
+    for (i = 0; i < NUM_PHILOSOPHERS; i++)
+    {
+        pthread_mutex_init(&forks[i], NULL);
+    }
+
+    // Create philosopher threads
+    for (i = 0; i < NUM_PHILOSOPHERS; i++)
+    {
+        philosopher_ids[i] = i;
+
+        pthread_create(&philosophers[i], NULL,
+                      philosopher, &philosopher_ids[i]);
+    }
+
+    // Join threads (runs indefinitely in this simulation)
+    for (i = 0; i < NUM_PHILOSOPHERS; i++)
+    {
+        pthread_join(philosophers[i], NULL);
+    }
+
+    // Destroy mutexes
+    for (i = 0; i < NUM_PHILOSOPHERS; i++)
+    {
+        pthread_mutex_destroy(&forks[i]);
+    }
+
+    return 0;
+}
+
+
+5. Banker’s Algorithm
+
+#include<stdio.h>
+
+int main()
+{
+    /* array will store at most 5 process with 3 resources
+       if your process or resources is greater than 5 and 3
+       then increase the size of array */
+
+    int p, c, count = 0, i, j;
+    int alc[5][3], max[5][3], need[5][3];
+    int safe[5], available[3], done[5], terminate = 0;
+
+    printf("Enter the number of process and resources");
+    scanf("%d %d", &p, &c);
+
+    // p is process and c is different resources
+    printf("enter allocation of resource of all process %dx%d matrix", p, c);
+
+    for (i = 0; i < p; i++)
+    {
+        for (j = 0; j < c; j++)
+        {
+            scanf("%d", &alc[i][j]);
+        }
+    }
+
+    printf("enter the max resource process required %dx%d matrix", p, c);
+
+    for (i = 0; i < p; i++)
+    {
+        for (j = 0; j < c; j++)
+        {
+            scanf("%d", &max[i][j]);
+        }
+    }
+
+    printf("enter the available resource");
+
+    for (i = 0; i < c; i++)
+        scanf("%d", &available[i]);
+
+    printf("\n need resources matrix are\n");
+
+    for (i = 0; i < p; i++)
+    {
+        for (j = 0; j < c; j++)
+        {
+            need[i][j] = max[i][j] - alc[i][j];
+
+            printf("%d\t", need[i][j]);
+        }
+
+        printf("\n");
+    }
+
+    /* once process execute variable done will stop them
+       for again execution */
+
+    for (i = 0; i < p; i++)
+    {
+        done[i] = 0;
+    }
+
+    while (count < p)
+    {
+        for (i = 0; i < p; i++)
+        {
+            if (done[i] == 0)
+            {
+                for (j = 0; j < c; j++)
+                {
+                    if (need[i][j] > available[j])
+                        break;
+                }
+
+                // when need matrix is not greater then available
+                // matrix then if j==c will true
+
+                if (j == c)
+                {
+                    safe[count] = i;
+                    done[i] = 1;
+
+                    /* now process get execute release the resources
+                       and add them in available resources */
+
+                    for (j = 0; j < c; j++)
+                    {
+                        available[j] += alc[i][j];
+                    }
+
+                    count++;
+                    terminate = 0;
+                }
+                else
+                {
+                    terminate++;
+                }
+            }
+        }
+
+        if (terminate == (p - 1))
+        {
+            printf("safe sequence does not exist");
+            break;
+        }
+    }
+
+    if (terminate != (p - 1))
+    {
+        printf("\n available resource after completion\n");
+
+        for (i = 0; i < c; i++)
+        {
+            printf("%d\t", available[i]);
+        }
+
+        printf("\n safe sequence is\n");
+
+        for (i = 0; i < p; i++)
+        {
+            printf("p%d ->\t", safe[i]);
+        }
+    }
+
+    return 0;
+}
+
+/* Output:
+
+Enter the number of process and resources
+
+5 3
+
+enter allocation of resource of all process 5x3 matrix
+
+0 1 0
+2 0 0
+3 0 2
+2 1 1
+0 0 2
+
+enter the max resource process required 5x3 matrix
+
+7 5 3
+3 2 2
+9 0 2
+4 2 2
+5 3 3
+
+enter the available resource 3 3 2
+
+need resources matrix are
+
+7 4 3
+1 2 2
+6 0 0
+2 1 1
+5 3 1
+
+available resource after completion
+
+10 5 7
+
+safe sequence is
+
+p1 -> p3 -> p4 -> p0 -> p2
+
+*/
+
+6. Full-Duplex Communication Using FIFO
+Program 1
+
+#include <string.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#define FIFO1 "fifo1"
+#define FIFO2 "fifo2"
+
+int main()
+{
+    char buf[100], buf1[100], str;
+    int fd, fd1, i = 0;
+
+    // memset(buf1,'\0',sizeof(buf1));
+
+    printf("\nEnter the string : \n");
+
+    while ((str = getchar()) != '#')
+        buf[i++] = str;
+
+    puts(buf);
+
+    mkfifo("fifo1", 0666);
+
+    fd = open("fifo1", O_WRONLY);
+
+    write(fd, buf, sizeof(buf));
+
+    printf("\nMessage sent");
+
+    close(fd);
+
+    fd1 = open("fifo2", O_RDONLY);
+
+    read(fd1, buf1, sizeof(buf1));
+
+    printf("\n\nMessage received");
+
+    printf("%s", buf1);
+
+    close(fd1);
+
+    return 0;
+}
+
+Program 2
+
+#include <string.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#define FIFO1 "fifo1"
+#define FIFO2 "fifo2"
+
+int main()
+{
+    char buf[100], buf1[100];
+
+    int fd, fd1, words = 1, lines = 1;
+    int characters = 1, len, i, count = 0;
+
+    char ch;
+    FILE *fp;
+
+    fd = open("fifo1", O_RDONLY);
+
+    memset(buf, '\0', sizeof(buf));
+
+    read(fd, buf, sizeof(buf));
+
+    printf("\nMessage received\n");
+
+    printf("%s", buf);
+
+    close(fd);
+
+    for (i = 0; buf[i] != '\0'; i++)
+    {
+        if (buf[i] == ' ' || buf[i] == '\n' || buf[i] == '#')
+            words++;
+
+        if (buf[i] == '\n' || buf[i] == '#')
+            lines++;
+
+        if (buf[i] != ' ' && buf[i] != '\n' && buf[i] != '#')
+            characters++;
+    }
+
+    printf("\nCounts are :\n");
+    printf("Characters: %d \nWords: %d \nLines: %d\n",
+           characters, words, lines);
+
+    fp = fopen("f.txt", "w+");
+
+    fprintf(fp, "\nCharacters: %d", characters);
+    fprintf(fp, "\nWords: %d", words);
+    fprintf(fp, "\nLines: %d\n", lines);
+
+    fclose(fp);
+
+    fp = fopen("f.txt", "r");
+
+    i = 0;
+
+    while ((ch = fgetc(fp)) != EOF)
+    {
+        buf1[i] = ch;
+        i++;
+    }
+
+    printf("\nBuffer contents");
+
+    printf("\n%s", buf1);
+
+    fclose(fp);
+
+    unlink("fifo1");
+
+    mkfifo("fifo2", 0666);
+
+    fd1 = open("fifo2", O_WRONLY);
+
+    write(fd1, buf1, sizeof(buf1));
+
+    printf("\nMessage sent\n");
+
+    close(fd1);
+
+    return 0;
+}
+
+
+7. Full-Duplex Communication Using Pipes
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <fcntl.h>
+#include <sys/wait.h>
+
+#define BUFFER_SIZE 1024
+
+int main()
+{
+    int pipe1[2]; // Parent to Child (carries pathname)
+    int pipe2[2]; // Child to Parent (carries file contents)
+
+    pid_t pid;
+
+    char pathname[BUFFER_SIZE];
+    char buffer[BUFFER_SIZE];
+
+    ssize_t n;
+
+    // Create the first pipe (Parent -> Child)
+    if (pipe(pipe1) == -1)
+    {
+        perror("Pipe 1 creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // Create the second pipe (Child -> Parent)
+    if (pipe(pipe2) == -1)
+    {
+        perror("Pipe 2 creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // Fork the child process
+    pid = fork();
+
+    if (pid < 0)
+    {
+        perror("Fork failed");
+        exit(EXIT_FAILURE);
+    }
+
+    if (pid > 0)
+    {
+        // ---- Parent Process ----
+
+        close(pipe1[0]); // Close unused read end of Pipe 1
+        close(pipe2[1]); // Close unused write end of Pipe 2
+
+        printf("Enter the file pathname to send to child: ");
+
+        if (fgets(pathname, BUFFER_SIZE, stdin) != NULL)
+        {
+            // Remove trailing newline if present
+            pathname[strcspn(pathname, "\n")] = 0;
+
+            // Write pathname to Pipe 1
+            write(pipe1[1], pathname, strlen(pathname) + 1);
+        }
+
+        close(pipe1[1]); // Finished writing pathname
+
+        // Read file contents from Pipe 2 and display on standard output
+        printf("\n--- Contents received from Child ---\n");
+
+        while ((n = read(pipe2[0], buffer, BUFFER_SIZE)) > 0)
+        {
+            write(STDOUT_FILENO, buffer, n);
+        }
+
+        close(pipe2[0]);
+
+        wait(NULL); // Wait for child to finish
+    }
+    else
+    {
+        // ---- Child Process ----
+
+        close(pipe1[1]); // Close unused write end of Pipe 1
+        close(pipe2[0]); // Close unused read end of Pipe 2
+
+        // Read pathname from Pipe 1
+        n = read(pipe1[0], pathname, BUFFER_SIZE);
+
+        close(pipe1[0]); // Finished reading pathname
+
+        if (n > 0)
+        {
+            // Open the requested file
+            int fd = open(pathname, O_RDONLY);
+
+            if (fd < 0)
+            {
+                char *err_msg =
+                    "Error: Could not open the specified file.\n";
+
+                write(pipe2[1], err_msg, strlen(err_msg));
+            }
+            else
+            {
+                // Read contents of the file and write to Pipe 2
+                while ((n = read(fd, buffer, BUFFER_SIZE)) > 0)
+                {
+                    write(pipe2[1], buffer, n);
+                }
+
+                close(fd);
+            }
+        }
+
+        close(pipe2[1]); // Finished writing file contents
+
+        exit(EXIT_SUCCESS);
+    }
+
+    return 0;
+}
+
+
+8. Disk Scheduling – SSTF
+
+#include<stdio.h>
+
+int main()
+{
+    int i, j, k, n, m, sum = 0, x, y, h;
+
+    cout << "Enter the size of disk\n";
+    cin >> m;
+
+    cout << "Enter number of requests\n";
+    cin >> n;
+
+    cout << "Enter the requests\n";
+
+    // creating two arrays, array a will store the input
+    // I/O requests and array b will store the output
+
+    vector<int> a(n), b;
+
+    // creating a map to store the count of each element
+    // in the array a.
+
+    map<int, int> mp;
+
+    for (i = 0; i < n; i++)
+    {
+        cin >> a[i];
+        mp[a[i]]++;
+    }
+
+    for (i = 0; i < n; i++)
+    {
+        if (a[i] > m)
+        {
+            cout << "Error, Unknown position " << a[i] << "\n";
+            return 0;
+        }
+    }
+
+    cout << "Enter the head position\n";
+    cin >> h;
+
+    int temp = h;
+    int ele;
+
+    b.push_back(h);
+
+    int count = 0;
+
+    while (count < n)
+    {
+        // initially taking diff to be very large.
+        int diff = 999999;
+
+        // traversing in map to find the least difference
+        for (auto q : mp)
+        {
+            if (abs(q.first - temp) < diff)
+            {
+                ele = q.first;
+                diff = abs(q.first - temp);
+            }
+        }
+
+        // deleting the element that has the least
+        // difference from the map
+
+        mp[ele]--;
+
+        if (mp[ele] == 0)
+        {
+            mp.erase(ele);
+        }
+
+        // adding that element to our output array.
+        b.push_back(ele);
+
+        temp = ele;
+
+        count++;
+    }
+
+    // printing the output array
+    cout << b[0];
+
+    temp = b[0];
+
+    for (i = 1; i < b.size(); i++)
+    {
+        cout << " -> " << b[i];
+
+        sum += abs(b[i] - temp);
+
+        temp = b[i];
+    }
+
+    cout << '\n';
+
+    cout << "Total head movements = " << sum << '\n';
+
+    cout << "Average head movement = "
+         << (float)sum / n << '\n';
+
+    return 0;
+}
+
+/* OUTPUT:
+
+Enter the size of disk
+
+199
+
+Enter number of requests
+
+8
+
+Enter the requests
+
+98 183 37 122 14 124 65 67
+
+Enter the head position
+
+53
+
+53 -> 65 -> 67 -> 37 -> 14 -> 98 -> 122 -> 124 -> 183
+
+Total head movements = 236
+
+Average head movement = 29.5
+
+*/
+
+
+9. Disk Scheduling – SCAN
+
+#include<stdio.h>
+
+int absoluteValue(int); // Declaring function absoluteValue
+
+void main()
+{
+    int queue[25], n, headposition, i, j, k, seek = 0, maxrange;
+    int difference, temp, queue1[20], queue2[20];
+    int temp1 = 0, temp2 = 0;
+
+    float averageSeekTime;
+
+    // Reading the maximum Range of the Disk.
+    printf("Enter the maximum range of Disk: ");
+    scanf("%d", &maxrange);
+
+    // Reading the number of Queue Requests (Disk access requests)
+    printf("Enter the number of queue requests: ");
+    scanf("%d", &n);
+
+    // Reading the initial head position
+    printf("Enter the initial head position: ");
+    scanf("%d", &headposition);
+
+    // Reading disk positions to be read in the order of arrival
+    printf("Enter the disk positions to be read(queue): ");
+
+    for (i = 1; i <= n; i++)
+    {
+        scanf("%d", &temp);
+
+        // If request is greater than current headposition
+        // push to array queue1
+        if (temp > headposition)
+        {
+            queue1[temp1] = temp;
+            temp1++;
+        }
+        else
+        {
+            queue2[temp2] = temp;
+            temp2++;
+        }
+    }
+
+    // Sorting array queue1[] in ascending order
+    for (i = 0; i < temp1 - 1; i++)
+    {
+        for (j = i + 1; j < temp1; j++)
+        {
+            if (queue1[i] > queue1[j])
+            {
+                temp = queue1[i];
+                queue1[i] = queue1[j];
+                queue1[j] = temp;
+            }
+        }
+    }
+
+    // Sorting array queue2[] in descending order
+    for (i = 0; i < temp2 - 1; i++)
+    {
+        for (j = i + 1; j < temp2; j++)
+        {
+            if (queue2[i] < queue2[j])
+            {
+                temp = queue2[i];
+                queue2[i] = queue2[j];
+                queue2[j] = temp;
+            }
+        }
+    }
+
+    // Copying first array queue1[] into queue[]
+    for (i = 1, j = 0; j < temp1; i++, j++)
+    {
+        queue[i] = queue1[j];
+    }
+
+    // Setting queue[i] to maxrange
+    queue[i] = maxrange;
+
+    // Copying second array queue2[] after queue1[]
+    for (i = temp1 + 2, j = 0; j < temp2; i++, j++)
+    {
+        queue[i] = queue2[j];
+    }
+
+    // Setting queue[i] to 0
+    queue[i] = 0;
+
+    // Setting 0th index to initial headposition
+    queue[0] = headposition;
+
+    // Calculating SEEK TIME
+    for (j = 0; j <= n; j++)
+    {
+        difference = absoluteValue(queue[j + 1] - queue[j]);
+
+        seek = seek + difference;
+
+        printf("Disk head moves from position %d to %d with Seek %d \n",
+               queue[j], queue[j + 1], difference);
+    }
+
+    // Calculating Average Seek time
+    averageSeekTime = seek / (float)n;
+
+    // Display Total and Average Seek Time
+    printf("Total Seek Time= %d\n", seek);
+
+    printf("Average Seek Time= %f\n", averageSeekTime);
+}
+
+// Defining function absoluteValue
+int absoluteValue(int x)
+{
+    if (x > 0)
+    {
+        return x;
+    }
+    else
+    {
+        return x * -1;
+    }
+}
+
+// END OF CODE
+// CODE WRITTEN AND COMMENTED BY NIVED KANNADA
+
+10. Disk Scheduling – C-LOOK
+
+#include<stdio.h>
+
+int absoluteValue(int); // Declaring function absoluteValue
+
+void main()
+{
+    int queue[25], n, headposition, i, j, k, seek = 0, maxrange;
+    int difference, temp, queue1[20], queue2[20];
+    int temp1 = 0, temp2 = 0;
+
+    float averageSeekTime;
+
+    // Reading the maximum Range of the Disk.
+    printf("Enter the maximum range of Disk: ");
+    scanf("%d", &maxrange);
+
+    // Reading the number of Queue Requests
+    printf("Enter the number of queue requests: ");
+    scanf("%d", &n);
+
+    // Reading the initial head position
+    printf("Enter the initial head position: ");
+    scanf("%d", &headposition);
+
+    // Reading disk positions to be read in the order of arrival
+    printf("Enter the disk positions to be read(queue): ");
+
+    for (i = 1; i <= n; i++)
+    {
+        scanf("%d", &temp);
+
+        // If request is greater than current headposition
+        // push to array queue1
+        if (temp > headposition)
+        {
+            queue1[temp1] = temp;
+            temp1++;
+        }
+        else
+        {
+            queue2[temp2] = temp;
+            temp2++;
+        }
+    }
+
+    // Sorting array queue1[] in ascending order
+    for (i = 0; i < temp1 - 1; i++)
+    {
+        for (j = i + 1; j < temp1; j++)
+        {
+            if (queue1[i] > queue1[j])
+            {
+                temp = queue1[i];
+                queue1[i] = queue1[j];
+                queue1[j] = temp;
+            }
+        }
+    }
+
+    // Sorting array queue2[] in descending order
+    for (i = 0; i < temp2 - 1; i++)
+    {
+        for (j = i + 1; j < temp2; j++)
+        {
+            if (queue2[i] < queue2[j])
+            {
+                temp = queue2[i];
+                queue2[i] = queue2[j];
+                queue2[j] = temp;
+            }
+        }
+    }
+
+    // Copying first array queue1[] into queue[]
+    for (i = 1, j = 0; j < temp1; i++, j++)
+    {
+        queue[i] = queue1[j];
+    }
+
+    // Setting queue[i] to maxrange
+    queue[i] = maxrange;
+
+    // Copying second array queue2[] after queue1[]
+    for (i = temp1 + 2, j = 0; j < temp2; i++, j++)
+    {
+        queue[i] = queue2[j];
+    }
+
+    // Setting queue[i] to 0
+    queue[i] = 0;
+
+    // Setting 0th index to initial headposition
+    queue[0] = headposition;
+
+    // Calculating SEEK TIME
+    for (j = 0; j <= n; j++)
+    {
+        difference = absoluteValue(queue[j + 1] - queue[j]);
+
+        seek = seek + difference;
+
+        printf("Disk head moves from position %d to %d with Seek %d \n",
+               queue[j], queue[j + 1], difference);
+    }
+
+    // Calculating Average Seek time
+    averageSeekTime = seek / (float)n;
+
+    // Display Total and Average Seek Time
+    printf("Total Seek Time= %d\n", seek);
+
+    printf("Average Seek Time= %f\n", averageSeekTime);
+}
+
+// Defining function absoluteValue
+int absoluteValue(int x)
+{
+    if (x > 0)
+    {
+        return x;
+    }
+    else
+    {
+        return x * -1;
+    }
+}
+
+// END OF CODE
+// CODE WRITTEN AND COMMENTED BY NIVED KANNADA
