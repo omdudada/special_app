@@ -5,26 +5,23 @@ import { SPRITE, CLOSING_LINE, AUDIO_START_DELAY_MS } from '@/lib/config';
 const SHAPES = ['closed', 'o', 'narrow', 'mid', 'wide'] as const;
 const pct = (v: number, t: number) => `${(v / t) * 100}%`;
 const GAIN = 2.4; // playback boost; the compressor stops clipping
-const COLORS = ['#9a3412', '#c2410c', '#be123c', '#e11d48', '#b45309', '#854d0e'];
-const makeTags = () => Array.from({ length: 24 }, () => ({
-  left: Math.random() * 90, top: Math.random() * 82, size: 13 + Math.random() * 12,
-  dx: (Math.random() - 0.5) * 170, dy: (Math.random() - 0.5) * 170, r: (Math.random() - 0.5) * 26,
-  d: 6 + Math.random() * 7, delay: -Math.random() * 10, c: COLORS[Math.floor(Math.random() * COLORS.length)],
+const COLORS = ['#fbbf24', '#f97316', '#ef4444', '#fde68a', '#fb923c', '#fcd34d'];
+const DIYAS = ['🪔', '🪔', '🪔', '✨', '🪔', '🪔'];
+const makeTags = () => Array.from({ length: 24 }, (_, i) => ({
+  left: Math.random() * 90, top: Math.random() * 82, size: 16 + Math.random() * 14,
+  dx: (Math.random() - 0.5) * 170, dy: (Math.random() - 0.5) * 170, r: (Math.random() - 0.5) * 20,
+  d: 7 + Math.random() * 7, delay: -Math.random() * 10, c: COLORS[Math.floor(Math.random() * COLORS.length)],
+  diya: DIYAS[i % DIYAS.length],
 }));
-const post = (url: string, body: object) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
 export default function Player() {
-  const [screen, setScreen] = useState<'gate' | 'name' | 'stage' | 'end'>('gate');
-  const [name, setName] = useState('');
+  const [screen, setScreen] = useState<'gate' | 'stage' | 'end'>('gate');
   const [tags, setTags] = useState<ReturnType<typeof makeTags>>([]);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const audio = useRef<HTMLAudioElement>(null), fig = useRef<HTMLDivElement>(null), bob = useRef<HTMLDivElement>(null);
   const shapes = useRef<Record<string, HTMLImageElement | null>>({});
   const playing = useRef(false), ctxRef = useRef<AudioContext | null>(null), an = useRef<AnalyserNode | null>(null);
-  const visit = useRef<Promise<string | null>>(Promise.resolve(null)), started = useRef(false);
   const playTimer = useRef<any>(null);
-
-  const track = (type: string) => { visit.current.then(id => { if (id) post('/api/visit/event', { id, type }).catch(() => {}); }); };
 
   // mouth loop: loudness + brightness of the audio pick the sprite
   useEffect(() => {
@@ -64,7 +61,8 @@ export default function Player() {
   function play(delayMs = AUDIO_START_DELAY_MS) {
     clearTimeout(playTimer.current);
     setupAudio(); ctxRef.current?.resume();
-    started.current = false; setScreen('stage');
+    setScreen('stage');
+    setTags(makeTags());
     const el = audio.current;
     if (!el) return;
     el.currentTime = 0;
@@ -77,31 +75,31 @@ export default function Player() {
     }
   }
 
-  function submitName() {
-    const n = name.trim(); if (!n) return;
-    visit.current = post('/api/visit', { name: n }).then(r => r.json()).then(j => j.id ?? null).catch(() => null);
-    setTags(makeTags());
-    play(AUDIO_START_DELAY_MS);
-  }
-
-  function replay() { track('REPLAYED'); play(AUDIO_START_DELAY_MS); }
+  function replay() { play(AUDIO_START_DELAY_MS); }
 
   return (
     <div className={`scene scene-${screen}`}>
-      {/* Dynamic ambient lighting & glowing gradient orbs */}
+      {/* Diwali string lights at the top */}
+      <div className="lantern-string" aria-hidden>
+        {Array.from({ length: 12 }).map((_, i) => (
+          <span key={i} className="lantern" style={{ animationDelay: `${i * 0.3}s` }}>🏮</span>
+        ))}
+      </div>
+
+      {/* Dynamic ambient lighting & Diwali glow orbs */}
       <div className="bg-glow-container" aria-hidden>
         <div className="bg-glow bg-glow-1" />
         <div className="bg-glow bg-glow-2" />
         <div className="bg-glow bg-glow-3" />
         <div className="vignette-overlay" />
-        {/* Floating subtle ambient stars */}
+        {/* Floating Diwali sparkles */}
         <div className="ambient-stars">
-          <span className="star s1">✦</span>
-          <span className="star s2">✧</span>
-          <span className="star s3">✦</span>
-          <span className="star s4">✧</span>
+          <span className="star s1">🪔</span>
+          <span className="star s2">✦</span>
+          <span className="star s3">✨</span>
+          <span className="star s4">🪔</span>
           <span className="star s5">✦</span>
-          <span className="star s6">✧</span>
+          <span className="star s6">✨</span>
         </div>
       </div>
 
@@ -112,8 +110,12 @@ export default function Player() {
           <div className="pulse-ring ring-1" />
           <div className="pulse-ring ring-2" />
           <div className="pulse-core">
-            <span className="pulse-sparkle">✨</span>
+            <span className="pulse-sparkle">🪔</span>
           </div>
+        </div>
+
+        <div className="gate-diwali-label" aria-label="Diwali Surprise for You">
+          🪔 Diwali Surprise for You 🪔
         </div>
 
         <h1 className="gate-title">
@@ -128,43 +130,13 @@ export default function Player() {
           <span>Sound on, please</span>
         </div>
 
-        <button className="main-btn btn-gate" onClick={() => setScreen('name')}>
+        <button className="main-btn btn-gate" onClick={() => play(AUDIO_START_DELAY_MS)}>
           <span>Tap to open</span>
           <span className="btn-arrow">✦</span>
         </button>
       </section>
 
-      {/* Slide 2: Name Input */}
-      <section className={`screen screen-name ${screen === 'name' ? 'on' : ''}`}>
-        <div className="glass-card name-card">
-          <div className="card-badge">
-            <span className="badge-sparkle">✨</span> A personal message
-          </div>
-
-          <h1 className="card-title">What&apos;s your name?</h1>
-          <p className="card-sub">So the message knows who it&apos;s speaking to</p>
-
-          <div className="input-wrap">
-            <input
-              aria-label="Your name"
-              value={name}
-              maxLength={60}
-              placeholder="Type your name here..."
-              autoComplete="given-name"
-              autoFocus
-              onChange={e => setName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && submitName()}
-            />
-          </div>
-
-          <button className="main-btn btn-continue" disabled={!name.trim()} onClick={submitName}>
-            <span>Continue</span>
-            <span className="btn-arrow">→</span>
-          </button>
-        </div>
-      </section>
-
-      {/* Slide 3: Stage / Character Lip-Sync & Floating Names */}
+      {/* Slide 3: Stage / Character Lip-Sync & Floating Diyas */}
       <section className={`screen stage ${screen === 'stage' ? 'on' : ''}`}>
         <div className="stage-spotlight" aria-hidden />
 
@@ -185,8 +157,22 @@ export default function Player() {
                 ['--r' as any]: `${t.r}deg`
               }}
             >
-              <span className="tag-sparkle">✦</span> {name.trim()}
+              {t.diya}
             </span>
+          ))}
+        </div>
+
+        {/* Bottom diya row decoration */}
+        <div className="diya-row" aria-hidden>
+          {Array.from({ length: 9 }).map((_, i) => (
+            <div
+              key={i}
+              className="diya-item"
+              style={{ animationDelay: `${i * 0.08}s` }}
+            >
+              <span className="diya-flame">🔥</span>
+              <span className="diya-base">🪔</span>
+            </div>
           ))}
         </div>
 
@@ -249,16 +235,15 @@ export default function Player() {
                 fontSize: `${16 + (i % 3) * 6}px`
               }}
             >
-              {['💖', '✨', '💛', '🌸', '✦'][i % 5]}
+              {['🪔', '✨', '🌼', '✦', '🎆'][i % 5]}
             </span>
           ))}
         </div>
 
         <div className={`glass-card end-card fin ${screen === 'end' ? 'on' : ''}`}>
-          <div className="end-badge-icon">💖</div>
+          <div className="end-badge-icon">🪔</div>
           <h1 className="end-title">
-            That was for you,<br />
-            <span className="end-name-highlight">{name.trim()}</span>.
+            That was made just for you.
           </h1>
           {CLOSING_LINE && (
             <p className="end-closing-line">
@@ -281,10 +266,6 @@ export default function Player() {
         onPlaying={() => {
           playing.current = true;
           setIsPlayingAudio(true);
-          if (!started.current) {
-            started.current = true;
-            track('STARTED');
-          }
         }}
         onPause={() => {
           playing.current = false;
@@ -293,7 +274,6 @@ export default function Player() {
         onEnded={() => {
           playing.current = false;
           setIsPlayingAudio(false);
-          track('COMPLETED');
           setTimeout(() => setScreen('end'), 900);
         }}
       />

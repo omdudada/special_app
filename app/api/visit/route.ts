@@ -5,6 +5,9 @@ export async function POST(req: Request) {
   const n = typeof name === 'string' ? name.trim().replace(/\s+/g, ' ') : '';
   if (!n || n.length > 60) return Response.json({ error: 'Invalid name' }, { status: 400 });
   const { data, error } = await admin.from('visits').insert({ name: n }).select('id').single();
-  if (error || !data) return Response.json({ error: 'Could not save' }, { status: 500 });
+  if (error || !data) {
+    console.error('Visit insert failed:', error);
+    return Response.json({ error: 'Could not save' }, { status: 500 });
+  }
   return Response.json({ id: data.id });
 }

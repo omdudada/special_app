@@ -1,7 +1,7 @@
 # Special app
 
-Flow: **index** ("Someone made something for you") → **name window** → **character speaks your message** → closing screen.
-No login or signup for visitors. Supabase is used only as a database to remember the names. You see them at `/admin`.
+Flow: **Diwali surprise** → **character speaks your message** → closing screen.
+Visitors do not need to enter a name. The `/admin` page may still show names saved by earlier versions.
 
 ## Setup
 1. `npm install`
@@ -17,6 +17,5 @@ Volume: change `GAIN` at the top of `components/Player.tsx`.
 Push to GitHub, import in Vercel, add the three env vars, deploy.
 
 ## Notes
-- Recorded: the name typed, when the page opened, when audio started/finished, and replay count. Nothing else. It can't prove someone heard it.
-- Add rate limiting before sharing the link widely, since anyone can submit names.
+- Existing visit records may contain names collected by an earlier version. The current visitor flow does not ask for a name.
 - Character art is from a YouTuber's video. Fine for a private gift; check rights before wider use.

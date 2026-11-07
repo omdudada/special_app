@@ -2,8 +2,8 @@ import './globals.css';
 import type { Metadata, Viewport } from 'next';
 
 export const metadata: Metadata = {
-  title: 'A message for you',
-  description: 'Someone made a special message for you',
+  title: 'A Diwali surprise for you',
+  description: 'Someone made a special Diwali surprise for you',
   robots: { index: false },
 };
 
